@@ -1,0 +1,9 @@
+domain: yildizozan.com
+layout:
+- go.kubebuilder.io/v3
+plugins:
+  manifests.sdk.operatorframework.io/v2: {}
+  scorecard.sdk.operatorframework.io/v2: {}
+projectName: sauron
+repo: github.com/yildizozan/sauron
+version: "3"
