@@ -28,14 +28,11 @@ type ApiTestSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of ApiTest. Edit apitest_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	Url string `json:"url"`
 }
 
 // ApiTestStatus defines the observed state of ApiTest
 type ApiTestStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
 }
 
 //+kubebuilder:object:root=true

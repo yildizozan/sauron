@@ -18,7 +18,9 @@ package controllers
 
 import (
 	"context"
-
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -36,6 +38,8 @@ type ApiTestReconciler struct {
 //+kubebuilder:rbac:groups=test.yildizozan.com,resources=apitests,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=test.yildizozan.com,resources=apitests/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=test.yildizozan.com,resources=apitests/finalizers,verbs=update
+// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -47,11 +51,77 @@ type ApiTestReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.12.1/pkg/reconcile
 func (r *ApiTestReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	logger := log.FromContext(ctx)
 
-	// TODO(user): your logic here
+	logger.Info("Hello World!")
 
-	return ctrl.Result{}, nil
+	// Fetch the Memcached instance
+	apitest := &testv1alpha1.ApiTest{}
+	err := r.Get(ctx, req.NamespacedName, apitest)
+	logger.Info("---->", apitest.Name, apitest.Namespace)
+
+	// Update the Memcached status with the pod names
+	// List the pods for this apitest's deployment
+	deployment := r.createDeployment(apitest)
+	logger.Info("Creating a new Deployment", "Deployment.Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
+	err = r.Create(ctx, deployment)
+	if err != nil {
+		logger.Error(err, "Failed to create new Deployment", "Deployment.Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
+		return ctrl.Result{}, err
+	}
+
+	return ctrl.Result{RequeueAfter: 10}, nil
+}
+
+// deploymentForMemcached returns a memcached Deployment object
+func (r *ApiTestReconciler) createDeployment(m *testv1alpha1.ApiTest) *appsv1.Deployment {
+	ls := map[string]string{"app": "memcached", "memcached_cr": m.Name}
+
+	containers := []corev1.Container{
+		{
+			Image:   "busybox:latest",
+			Name:    "busybox",
+			Command: []string{"/bin/sh", "-c", "while true; do date; sleep 1; done"},
+			Ports: []corev1.ContainerPort{{
+				ContainerPort: 8080,
+				Name:          "busybox",
+			}},
+		},
+	}
+
+	podSpec := corev1.PodSpec{
+		Containers: containers,
+	}
+
+	podTemplateSpec := corev1.PodTemplateSpec{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: ls,
+		},
+		Spec: podSpec,
+	}
+
+	deploymentSpec := appsv1.DeploymentSpec{
+		Selector: &metav1.LabelSelector{
+			MatchLabels: ls,
+		},
+		Template: podTemplateSpec,
+	}
+
+	objectMeta := metav1.ObjectMeta{
+		Name:      m.Name,
+		Namespace: "default",
+	}
+
+	deployment := &appsv1.Deployment{
+		TypeMeta:   metav1.TypeMeta{},
+		ObjectMeta: objectMeta,
+		Spec:       deploymentSpec,
+		Status:     appsv1.DeploymentStatus{},
+	}
+
+	// Set Memcached instance as the owner and controller
+	ctrl.SetControllerReference(m, deployment, r.Scheme)
+	return deployment
 }
 
 // SetupWithManager sets up the controller with the Manager.

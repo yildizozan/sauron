@@ -2,5 +2,12 @@ apiVersion: test.yildizozan.com/v1alpha1
 kind: ApiTest
 metadata:
   name: apitest-sample
+
 spec:
   # TODO(user): Add fields here
+  url: https://jsonplaceholder.typicode.com/todos
+#  request:
+#    method: GET
+#    body:
+#      username: ozan
+#      password: T0pS3cr3t
