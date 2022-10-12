@@ -1,0 +1,24 @@
+# permissions for end users to edit apitests.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: apitest-editor-role
+rules:
+- apiGroups:
+  - test.yildizozan.com
+  resources:
+  - apitests
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - test.yildizozan.com
+  resources:
+  - apitests/status
+  verbs:
+  - get

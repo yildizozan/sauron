@@ -1,0 +1,6 @@
+apiVersion: test.yildizozan.com/v1alpha1
+kind: ApiTest
+metadata:
+  name: apitest-sample
+spec:
+  # TODO(user): Add fields here
