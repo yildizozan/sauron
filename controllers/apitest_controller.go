@@ -91,7 +91,21 @@ func (r *ApiTestReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
-	return ctrl.Result{RequeueAfter: 10}, nil
+	// Ensure the deployment size is the same as the spec
+	size := int32Ref(1)
+	if *found.Spec.Replicas != 1 {
+		found.Spec.Replicas = size
+		err = r.Update(ctx, found)
+		if err != nil {
+			logger.Error(err, "Failed to update Deployment")
+			return ctrl.Result{}, err
+		}
+		// Spec updated - return and requeue
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	logger.Info("Reconcile loop success")
+	return ctrl.Result{Requeue: true}, nil
 }
 
 // deploymentForMemcached returns a memcached Deployment object
