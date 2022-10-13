@@ -78,10 +78,14 @@ func (r *ApiTestReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}, found)
 	if err != nil && errors.IsNotFound(err) {
 		deployment := r.createDeployment(apitest)
-		logger.Info("Creating a new Deployment", "Deployment.Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
+		logger.Info("Creating a new Deployment",
+			"Deployment.Namespace", deployment.Namespace,
+			"Deployment.Name", deployment.Name)
 		err = r.Create(ctx, deployment)
 		if err != nil {
-			logger.Error(err, "Failed to create new Deployment", "Deployment.Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
+			logger.Error(err, "Failed to create new Deployment",
+				"Deployment.Namespace", deployment.Namespace,
+				"Deployment.Name", deployment.Name)
 			return ctrl.Result{}, err
 		}
 		// Deployment created successfully - return and requeue
@@ -105,7 +109,7 @@ func (r *ApiTestReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	logger.Info("Reconcile loop success")
-	return ctrl.Result{Requeue: true}, nil
+	return ctrl.Result{}, nil
 }
 
 // deploymentForMemcached returns a memcached Deployment object
