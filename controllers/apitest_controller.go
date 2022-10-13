@@ -20,6 +20,7 @@ import (
 	"context"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -53,15 +54,22 @@ type ApiTestReconciler struct {
 func (r *ApiTestReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
-	logger.Info("Hello World!")
-
-	// Fetch the Memcached instance
+	// Fetch the Apitest instance
 	apitest := &testv1alpha1.ApiTest{}
 	err := r.Get(ctx, req.NamespacedName, apitest)
-	logger.Info("---->", apitest.Name, apitest.Namespace)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// Request object not found, could have been deleted after reconcile request.
+			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
+			// Return and don't requeue
+			logger.Info("Apitest resource not found. Ignoring since object must be deleted")
+			return ctrl.Result{}, nil
+		}
+		// Error reading the object - requeue the request.
+		logger.Error(err, "Failed to get apitest")
+		return ctrl.Result{}, err
+	}
 
-	// Update the Memcached status with the pod names
-	// List the pods for this apitest's deployment
 	deployment := r.createDeployment(apitest)
 	logger.Info("Creating a new Deployment", "Deployment.Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
 	err = r.Create(ctx, deployment)
