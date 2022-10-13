@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -77,7 +78,7 @@ func (r *ApiTestReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		Name:      apitest.Name,
 	}, found)
 	if err != nil && errors.IsNotFound(err) {
-		deployment := r.createDeployment(apitest)
+		deployment := r.createDeployment(apitest, &apitest.Spec.Url)
 		logger.Info("Creating a new Deployment",
 			"Deployment.Namespace", deployment.Namespace,
 			"Deployment.Name", deployment.Name)
@@ -113,17 +114,21 @@ func (r *ApiTestReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 }
 
 // deploymentForMemcached returns a memcached Deployment object
-func (r *ApiTestReconciler) createDeployment(m *testv1alpha1.ApiTest) *appsv1.Deployment {
-	ls := map[string]string{"app": "memcached", "memcached_cr": m.Name}
+func (r *ApiTestReconciler) createDeployment(m *testv1alpha1.ApiTest, url *string) *appsv1.Deployment {
+	ls := map[string]string{
+		"app":          "memcached",
+		"memcached_cr": m.Name,
+	}
 
+	cmd := fmt.Sprintf("while true; do curl -s %s; sleep 1; done", *url)
 	containers := []corev1.Container{
 		{
-			Image:   "busybox:latest",
-			Name:    "busybox",
-			Command: []string{"/bin/sh", "-c", "while true; do date; sleep 1; done"},
+			Image:   "curlimages/curl:latest",
+			Name:    "curl",
+			Command: []string{"/bin/sh", "-c", cmd},
 			Ports: []corev1.ContainerPort{{
 				ContainerPort: 8080,
-				Name:          "busybox",
+				Name:          "curl",
 			}},
 		},
 	}
@@ -158,7 +163,7 @@ func (r *ApiTestReconciler) createDeployment(m *testv1alpha1.ApiTest) *appsv1.De
 		Status:     appsv1.DeploymentStatus{},
 	}
 
-	// Set Memcached instance as the owner and controller
+	// Set Apitest instance as the owner and controller
 	ctrl.SetControllerReference(m, deployment, r.Scheme)
 	return deployment
 }
