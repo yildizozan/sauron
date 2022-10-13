@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -70,11 +71,23 @@ func (r *ApiTestReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
-	deployment := r.createDeployment(apitest)
-	logger.Info("Creating a new Deployment", "Deployment.Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
-	err = r.Create(ctx, deployment)
-	if err != nil {
-		logger.Error(err, "Failed to create new Deployment", "Deployment.Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
+	found := &appsv1.Deployment{}
+	err = r.Get(ctx, types.NamespacedName{
+		Namespace: apitest.Namespace,
+		Name:      apitest.Name,
+	}, found)
+	if err != nil && errors.IsNotFound(err) {
+		deployment := r.createDeployment(apitest)
+		logger.Info("Creating a new Deployment", "Deployment.Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
+		err = r.Create(ctx, deployment)
+		if err != nil {
+			logger.Error(err, "Failed to create new Deployment", "Deployment.Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
+			return ctrl.Result{}, err
+		}
+		// Deployment created successfully - return and requeue
+		return ctrl.Result{Requeue: true}, nil
+	} else if err != nil {
+		logger.Error(err, "Failed to get Deployment")
 		return ctrl.Result{}, err
 	}
 
