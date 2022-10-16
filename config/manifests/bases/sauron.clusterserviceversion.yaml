@@ -1,0 +1,47 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: '[]'
+    capabilities: Basic Install
+  name: sauron.v0.0.0
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned:
+    - description: ApiTest is the Schema for the apitests API
+      displayName: Api Test
+      kind: ApiTest
+      name: apitests.test.yildizozan.com
+      version: v1alpha1
+  description: Sauron Controller
+  displayName: sauron-controller-manager
+  icon:
+  - base64data: ""
+    mediatype: ""
+  install:
+    spec:
+      deployments: null
+    strategy: ""
+  installModes:
+  - supported: false
+    type: OwnNamespace
+  - supported: false
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
+  keywords:
+  - testing
+  links:
+  - name: Sauron
+    url: https://yildizozan.github.io/sauron
+  maintainers:
+  - email: developer@yildizozan.com
+    name: Ozan YILDIZ
+  maturity: alpha
+  provider:
+    name: yildizozan
+  version: 0.0.0

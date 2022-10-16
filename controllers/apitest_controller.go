@@ -19,17 +19,15 @@ package controllers
 import (
 	"context"
 	"fmt"
+	testv1alpha1 "github.com/yildizozan/sauron/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	testv1alpha1 "github.com/yildizozan/sauron/api/v1alpha1"
 )
 
 // ApiTestReconciler reconciles a ApiTest object
@@ -55,10 +53,11 @@ type ApiTestReconciler struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.12.1/pkg/reconcile
 func (r *ApiTestReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
+	logger.Info("Reconcile loop has beed starting")
 
 	// Fetch the Apitest instance
-	apitest := &testv1alpha1.ApiTest{}
-	err := r.Get(ctx, req.NamespacedName, apitest)
+	current := &testv1alpha1.ApiTest{}
+	err := r.Get(ctx, req.NamespacedName, current)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -68,17 +67,14 @@ func (r *ApiTestReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			return ctrl.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
-		logger.Error(err, "Failed to get apitest")
+		logger.Error(err, "Failed to get current")
 		return ctrl.Result{}, err
 	}
 
 	found := &appsv1.Deployment{}
-	err = r.Get(ctx, types.NamespacedName{
-		Namespace: apitest.Namespace,
-		Name:      apitest.Name,
-	}, found)
+	err = r.Get(ctx, req.NamespacedName, found)
 	if err != nil && errors.IsNotFound(err) {
-		deployment := r.createDeployment(apitest, &apitest.Spec.Url)
+		deployment := r.createDeployment(current, &current.Spec.Url)
 		logger.Info("Creating a new Deployment",
 			"Deployment.Namespace", deployment.Namespace,
 			"Deployment.Name", deployment.Name)
@@ -89,31 +85,50 @@ func (r *ApiTestReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 				"Deployment.Name", deployment.Name)
 			return ctrl.Result{}, err
 		}
+
 		// Deployment created successfully - return and requeue
+		current.Status.Url = current.Spec.Url
+		err := r.Status().Update(ctx, current)
+		if err != nil {
+			logger.Error(err, "Failed to update ApiTest status")
+			return ctrl.Result{}, err
+		}
+
 		return ctrl.Result{Requeue: true}, nil
 	} else if err != nil {
 		logger.Error(err, "Failed to get Deployment")
 		return ctrl.Result{}, err
 	}
 
-	// Ensure the deployment size is the same as the spec
-	size := int32Ref(1)
-	if *found.Spec.Replicas != 1 {
-		found.Spec.Replicas = size
-		err = r.Update(ctx, found)
+	if current.Status.Url != current.Spec.Url {
+		logger.Info("Spec-New is not equal",
+			"Spec", current.Spec.Url,
+			"Status", current.Status.Url)
+		deployment := r.createDeployment(current, &current.Spec.Url)
+		err = r.Update(ctx, deployment)
 		if err != nil {
-			logger.Error(err, "Failed to update Deployment")
+			logger.Error(err, "Failed to update Deployment",
+				"Deployment.Namespace", deployment.Namespace,
+				"Deployment.Name", deployment.Name)
 			return ctrl.Result{}, err
 		}
-		// Spec updated - return and requeue
+
+		// Deployment created successfully - return and requeue
+		current.Status.Url = current.Spec.Url
+		err := r.Status().Update(ctx, current)
+		if err != nil {
+			logger.Error(err, "Failed to update ApiTest status")
+			return ctrl.Result{}, err
+		}
+
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	logger.Info("Reconcile loop success")
+	logger.Info("Reconcile loop has beed ending")
 	return ctrl.Result{}, nil
 }
 
-// deploymentForMemcached returns a memcached Deployment object
+// a deployment object
 func (r *ApiTestReconciler) createDeployment(m *testv1alpha1.ApiTest, url *string) *appsv1.Deployment {
 	ls := map[string]string{
 		"app":          "memcached",
@@ -172,5 +187,8 @@ func (r *ApiTestReconciler) createDeployment(m *testv1alpha1.ApiTest, url *strin
 func (r *ApiTestReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&testv1alpha1.ApiTest{}).
+		// Necessary to watch deployed deployment
+		// Controller notified when any deployment is deleted
+		Owns(&appsv1.Deployment{}).
 		Complete(r)
 }

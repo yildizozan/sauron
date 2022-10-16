@@ -33,6 +33,7 @@ type ApiTestSpec struct {
 
 // ApiTestStatus defines the observed state of ApiTest
 type ApiTestStatus struct {
+	Url string `json:"url"`
 }
 
 //+kubebuilder:object:root=true
